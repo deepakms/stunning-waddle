@@ -1,14 +1,14 @@
 /** @type {import('jest').Config} */
 module.exports = {
-  // Use node environment for utility tests
-  testEnvironment: 'node',
+  // Use jsdom for React component tests
+  testEnvironment: 'jsdom',
 
   // Setup files
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 
-  // Transform TypeScript files
+  // Transform TypeScript and JavaScript files
   transform: {
-    '^.+\\.(ts|tsx)$': [
+    '^.+\\.(js|jsx|ts|tsx)$': [
       'babel-jest',
       {
         presets: ['babel-preset-expo'],
@@ -18,7 +18,7 @@ module.exports = {
 
   // Transform packages that use ES modules
   transformIgnorePatterns: [
-    'node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@supabase)/)',
+    'node_modules/(?!(expo|@expo|expo-modules-core|@react-native|react-native|@supabase|@testing-library|pretty-format|react-is)/)',
   ],
 
   // Path aliases
