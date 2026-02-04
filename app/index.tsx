@@ -28,8 +28,8 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // User is authenticated, go to main app
-  return <Redirect href="/(main)/home" />;
+  // User is authenticated, go to main app (tabs)
+  return <Redirect href="/(tabs)" />;
 }
 
 const styles = StyleSheet.create({
