@@ -38,6 +38,13 @@ export const STREAK_MULTIPLIERS = {
 } as const;
 
 // ============================================
+// APP URLS & SCHEME
+// ============================================
+
+export const APP_SCHEME = 'couplesworkout';
+export const WEB_URL = 'https://couplesworkout.app';
+
+// ============================================
 // INVITE SYSTEM
 // ============================================
 

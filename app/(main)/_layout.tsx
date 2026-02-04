@@ -1,7 +1,7 @@
 /**
  * Main App Layout
  *
- * Layout for authenticated screens with tab navigation.
+ * Layout for authenticated screens with stack navigation.
  */
 
 import { Stack } from 'expo-router';
@@ -14,7 +14,11 @@ export default function MainLayout() {
         contentStyle: { backgroundColor: '#ffffff' },
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen name="home" />
+      <Stack.Screen name="invite" />
+      <Stack.Screen name="join-couple" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="workout" />
     </Stack>
   );
 }
