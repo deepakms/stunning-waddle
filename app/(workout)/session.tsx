@@ -5,7 +5,7 @@
  * Shows current exercise, timer, and progress.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { CircularTimer } from '@/components/workout/CircularTimer';
 import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { BlockProgress } from '@/components/workout/BlockProgress';
 import { PauseOverlay } from '@/components/workout/PauseOverlay';
+import { HeartRateBadge } from '@/components/workout/HeartRateMonitor';
 import { COLORS, SPACING, FONT_SIZES } from '@/constants/app';
 import {
   getActiveWorkout,
@@ -31,6 +32,7 @@ import {
   type WorkoutBlock,
   type ActiveWorkoutState,
 } from '@/services/workout-service';
+import { useHealth, type HeartRateZone, type HeartRateSample } from '@/services/health';
 
 export default function WorkoutSessionScreen() {
   const params = useLocalSearchParams<{ workoutId: string }>();
@@ -41,6 +43,37 @@ export default function WorkoutSessionScreen() {
   const [isPaused, setIsPaused] = useState(false);
   const [isPartnerA] = useState(true); // For demo, assume user is partner A
   const [loading, setLoading] = useState(true);
+
+  // Heart rate monitoring
+  const {
+    isAvailable: hrAvailable,
+    hasPermission: hrPermission,
+    heartRate,
+    heartRateZone,
+    startMonitoring,
+    stopMonitoring,
+  } = useHealth(190);
+  const heartRateSamples = useRef<HeartRateSample[]>([]);
+
+  // Start heart rate monitoring when workout starts
+  useEffect(() => {
+    if (hrAvailable && hrPermission && !loading) {
+      startMonitoring();
+    }
+    return () => {
+      stopMonitoring();
+    };
+  }, [hrAvailable, hrPermission, loading]);
+
+  // Collect heart rate samples during workout
+  useEffect(() => {
+    if (heartRate) {
+      heartRateSamples.current.push({
+        value: heartRate,
+        timestamp: new Date(),
+      });
+    }
+  }, [heartRate]);
 
   // Initialize workout blocks
   useEffect(() => {
@@ -191,6 +224,10 @@ export default function WorkoutSessionScreen() {
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
             </View>
           </View>
+          {/* Heart Rate Badge */}
+          {hrAvailable && (
+            <HeartRateBadge heartRate={heartRate} zone={heartRateZone} />
+          )}
           <TouchableOpacity style={styles.pauseButton} onPress={handlePause}>
             <Text style={styles.pauseButtonText}>⏸</Text>
           </TouchableOpacity>
