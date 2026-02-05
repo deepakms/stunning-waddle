@@ -5,7 +5,7 @@
  * Shows current exercise, timer, and progress.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -20,6 +21,7 @@ import { CircularTimer } from '@/components/workout/CircularTimer';
 import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { BlockProgress } from '@/components/workout/BlockProgress';
 import { PauseOverlay } from '@/components/workout/PauseOverlay';
+import { HeartRateBadge, HeartRateMonitor } from '@/components/workout/HeartRateMonitor';
 import { COLORS, SPACING, FONT_SIZES } from '@/constants/app';
 import {
   getActiveWorkout,
@@ -31,6 +33,106 @@ import {
   type WorkoutBlock,
   type ActiveWorkoutState,
 } from '@/services/workout-service';
+import { useHealth, type HeartRateZone, type HeartRateSample, getZoneColor, getZoneName } from '@/services/health';
+
+// Live Heart Rate Display Component
+function LiveHeartRate({
+  heartRate,
+  zone,
+  isMonitoring,
+}: {
+  heartRate: number | null;
+  zone: HeartRateZone | null;
+  isMonitoring: boolean;
+}) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (heartRate && isMonitoring) {
+      const duration = Math.max(250, 60000 / heartRate / 2);
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+    return () => pulseAnim.stopAnimation();
+  }, [heartRate, isMonitoring]);
+
+  const zoneColor = zone ? getZoneColor(zone) : COLORS.textSecondary;
+
+  return (
+    <View style={[liveHrStyles.container, { borderColor: zoneColor }]}>
+      <Animated.Text style={[liveHrStyles.heart, { transform: [{ scale: pulseAnim }] }]}>
+        ❤️
+      </Animated.Text>
+      <Text style={[liveHrStyles.value, { color: zoneColor }]}>
+        {heartRate || '--'}
+      </Text>
+      <Text style={liveHrStyles.unit}>BPM</Text>
+      {zone && (
+        <View style={[liveHrStyles.zoneBadge, { backgroundColor: zoneColor }]}>
+          <Text style={liveHrStyles.zoneText}>{getZoneName(zone)}</Text>
+        </View>
+      )}
+      {!heartRate && isMonitoring && (
+        <Text style={liveHrStyles.connecting}>Connecting...</Text>
+      )}
+    </View>
+  );
+}
+
+const liveHrStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: SPACING.md,
+    borderWidth: 2,
+    minWidth: 100,
+  },
+  heart: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 36,
+    fontWeight: '700',
+  },
+  unit: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: -4,
+  },
+  zoneBadge: {
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  zoneText: {
+    color: '#fff',
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+  },
+  connecting: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
+});
 
 export default function WorkoutSessionScreen() {
   const params = useLocalSearchParams<{ workoutId: string }>();
@@ -41,6 +143,37 @@ export default function WorkoutSessionScreen() {
   const [isPaused, setIsPaused] = useState(false);
   const [isPartnerA] = useState(true); // For demo, assume user is partner A
   const [loading, setLoading] = useState(true);
+
+  // Heart rate monitoring
+  const {
+    isAvailable: hrAvailable,
+    hasPermission: hrPermission,
+    heartRate,
+    heartRateZone,
+    startMonitoring,
+    stopMonitoring,
+  } = useHealth(190);
+  const heartRateSamples = useRef<HeartRateSample[]>([]);
+
+  // Start heart rate monitoring when workout starts
+  useEffect(() => {
+    if (hrAvailable && hrPermission && !loading) {
+      startMonitoring();
+    }
+    return () => {
+      stopMonitoring();
+    };
+  }, [hrAvailable, hrPermission, loading]);
+
+  // Collect heart rate samples during workout
+  useEffect(() => {
+    if (heartRate) {
+      heartRateSamples.current.push({
+        value: heartRate,
+        timestamp: new Date(),
+      });
+    }
+  }, [heartRate]);
 
   // Initialize workout blocks
   useEffect(() => {
@@ -191,6 +324,10 @@ export default function WorkoutSessionScreen() {
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
             </View>
           </View>
+          {/* Heart Rate Badge */}
+          {hrAvailable && (
+            <HeartRateBadge heartRate={heartRate} zone={heartRateZone} />
+          )}
           <TouchableOpacity style={styles.pauseButton} onPress={handlePause}>
             <Text style={styles.pauseButtonText}>⏸</Text>
           </TouchableOpacity>
@@ -204,13 +341,25 @@ export default function WorkoutSessionScreen() {
           </Text>
         </View>
 
-        {/* Timer */}
+        {/* Timer with Heart Rate */}
         <View style={styles.timerSection}>
-          <CircularTimer
-            seconds={timeRemaining}
-            totalSeconds={currentBlock.duration}
-            size={200}
-          />
+          <View style={styles.timerRow}>
+            <CircularTimer
+              seconds={timeRemaining}
+              totalSeconds={currentBlock.duration}
+              size={160}
+            />
+            {/* Live Heart Rate Display */}
+            {hrAvailable && (
+              <View style={styles.liveHrContainer}>
+                <LiveHeartRate
+                  heartRate={heartRate}
+                  zone={heartRateZone}
+                  isMonitoring={!isPaused}
+                />
+              </View>
+            )}
+          </View>
         </View>
 
         {/* My Exercise Card */}
@@ -329,6 +478,15 @@ const styles = StyleSheet.create({
   timerSection: {
     alignItems: 'center',
     marginBottom: SPACING.xl,
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.lg,
+  },
+  liveHrContainer: {
+    marginLeft: SPACING.md,
   },
 
   // Exercise Section
