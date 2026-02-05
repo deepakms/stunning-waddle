@@ -5,7 +5,7 @@
  * Shows stats, XP earned, and celebration.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,21 +19,51 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { WorkoutSummary } from '@/components/workout/WorkoutSummary';
 import { COLORS, SPACING, FONT_SIZES } from '@/constants/app';
 
-// Mock workout results
-const MOCK_RESULTS = {
-  duration: 25,
-  totalBlocks: 6,
-  completedBlocks: 6,
-  xpEarned: 250,
-  streakBonus: true,
-  newStreak: 5,
-  muscleGroups: ['Chest', 'Legs', 'Core'],
-  calories: 180,
-};
-
 export default function WorkoutCompleteScreen() {
-  const params = useLocalSearchParams<{ workoutId: string; early: string }>();
+  const params = useLocalSearchParams<{
+    workoutId: string;
+    early: string;
+    xpEarned: string;
+    enjoyment: string;
+    difficulty: string;
+    connection: string;
+    duration: string;
+    completedBlocks: string;
+    totalBlocks: string;
+    recommendations: string;
+  }>();
   const wasEarly = params.early === 'true';
+
+  // Parse feedback data from params or use defaults
+  const results = useMemo(() => {
+    const xpEarned = parseInt(params.xpEarned ?? '250', 10);
+    const duration = parseInt(params.duration ?? '25', 10);
+    const completedBlocks = parseInt(params.completedBlocks ?? '6', 10);
+    const totalBlocks = parseInt(params.totalBlocks ?? '6', 10);
+    const enjoyment = parseInt(params.enjoyment ?? '4', 10);
+    const connection = parseInt(params.connection ?? '4', 10);
+
+    let recommendations: string[] = [];
+    try {
+      if (params.recommendations) {
+        recommendations = JSON.parse(params.recommendations);
+      }
+    } catch {}
+
+    return {
+      duration,
+      totalBlocks,
+      completedBlocks,
+      xpEarned,
+      streakBonus: xpEarned > duration * 5,
+      newStreak: 5, // Would come from user profile
+      muscleGroups: ['Chest', 'Legs', 'Core'],
+      calories: duration * 7,
+      enjoyment,
+      connection,
+      recommendations,
+    };
+  }, [params]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -82,7 +112,6 @@ export default function WorkoutCompleteScreen() {
     router.replace('/(tabs)/history');
   };
 
-  const results = MOCK_RESULTS;
   const completionRate = (results.completedBlocks / results.totalBlocks) * 100;
 
   return (
@@ -171,6 +200,31 @@ export default function WorkoutCompleteScreen() {
             ))}
           </View>
         </View>
+
+        {/* Progression Recommendations */}
+        {results.recommendations.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Level Up Tips</Text>
+            <View style={styles.recommendationsCard}>
+              {results.recommendations.map((rec, index) => (
+                <View key={index} style={styles.recommendationItem}>
+                  <Text style={styles.recommendationIcon}>⬆️</Text>
+                  <Text style={styles.recommendationText}>{rec}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Partner Connection */}
+        {results.connection >= 4 && (
+          <View style={styles.connectionCard}>
+            <Text style={styles.connectionEmoji}>💕</Text>
+            <Text style={styles.connectionText}>
+              Great partner workout! Your connection rating: {results.connection}/5
+            </Text>
+          </View>
+        )}
 
         {/* Motivational Quote */}
         <View style={styles.quoteCard}>
@@ -334,6 +388,47 @@ const styles = StyleSheet.create({
   muscleChipText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.success,
+    fontWeight: '500',
+  },
+
+  // Recommendations
+  recommendationsCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: SPACING.md,
+  },
+  recommendationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  recommendationIcon: {
+    fontSize: 16,
+    marginRight: SPACING.sm,
+  },
+  recommendationText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.text,
+  },
+
+  // Connection Card
+  connectionCard: {
+    backgroundColor: `${COLORS.secondary}15`,
+    borderRadius: 12,
+    padding: SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+  },
+  connectionEmoji: {
+    fontSize: 24,
+    marginRight: SPACING.md,
+  },
+  connectionText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.secondary,
     fontWeight: '500',
   },
 

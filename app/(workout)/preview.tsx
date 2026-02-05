@@ -5,64 +5,71 @@
  * Displays exercise list, duration, and partner info.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useProfile } from '@/hooks/useProfile';
 import { COLORS, SPACING, FONT_SIZES, WORKOUT_STRUCTURE, type WorkoutDuration } from '@/constants/app';
-
-// Mock workout generation - will be replaced with actual service
-function generateMockWorkout(duration: WorkoutDuration, type: string) {
-  const structure = WORKOUT_STRUCTURE[duration];
-
-  const exercises = [
-    { name: 'Jumping Jacks', type: 'warmup', duration: 60 },
-    { name: 'Arm Circles', type: 'warmup', duration: 30 },
-    { name: 'Push-ups', type: 'exercise', duration: 45, reps: 12 },
-    { name: 'Squats', type: 'exercise', duration: 45, reps: 15 },
-    { name: 'Plank', type: 'exercise', duration: 30 },
-    { name: 'Lunges', type: 'exercise', duration: 45, reps: 10 },
-    { name: 'Rest', type: 'rest', duration: 30 },
-    { name: 'Burpees', type: 'exercise', duration: 45, reps: 8 },
-    { name: 'Mountain Climbers', type: 'exercise', duration: 30 },
-    { name: 'Cool Down Stretch', type: 'cooldown', duration: 90 },
-  ];
-
-  return {
-    id: 'mock-workout-1',
-    name: type === 'full-body' ? 'Full Body Blast' : `${type.replace('-', ' ')} Focus`,
-    duration,
-    totalBlocks: structure.warmupBlocks + structure.exerciseBlocks + structure.cooldownBlocks,
-    muscleGroups: ['chest', 'legs', 'core'],
-    exercises: exercises.slice(0, structure.exerciseBlocks + 2),
-    estimatedCalories: duration * 8,
-    difficultyA: 2,
-    difficultyB: 4,
-  };
-}
+import {
+  prepareSimpleWorkout,
+  type PreparedWorkout,
+} from '@/services/workout-service';
 
 export default function WorkoutPreviewScreen() {
   const params = useLocalSearchParams<{ duration: string; type: string }>();
   const { profile, profileWithCouple } = useProfile();
+  const [workout, setWorkout] = useState<PreparedWorkout | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const duration = (parseInt(params.duration ?? '30', 10) || 30) as WorkoutDuration;
   const type = params.type ?? 'full-body';
 
-  const workout = useMemo(() => generateMockWorkout(duration, type), [duration, type]);
+  useEffect(() => {
+    // Generate workout using the pairing service
+    const generatedWorkout = prepareSimpleWorkout({
+      duration,
+      focusArea: type,
+      fitnessLevelA: profile?.fitnessLevel || 'beginner',
+      fitnessLevelB: profileWithCouple?.partner?.fitnessLevel || 'intermediate',
+    });
+    setWorkout(generatedWorkout);
+    setLoading(false);
+  }, [duration, type, profile?.fitnessLevel, profileWithCouple?.partner?.fitnessLevel]);
 
   const handleStart = () => {
+    if (!workout) return;
     router.push({
       pathname: '/(workout)/ready',
       params: { workoutId: workout.id },
     });
   };
+
+  if (loading || !workout) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Generating your workout...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Convert blocks to exercise preview format
+  const exercises = workout.blocks.map((block, index) => ({
+    name: block.exerciseA.name,
+    type: block.type,
+    duration: block.duration,
+    reps: block.exerciseA.reps,
+  }));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -144,7 +151,7 @@ export default function WorkoutPreviewScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Exercise Preview</Text>
           <View style={styles.exerciseList}>
-            {workout.exercises.map((exercise, index) => (
+            {exercises.map((exercise, index) => (
               <View key={index} style={styles.exerciseItem}>
                 <View style={styles.exerciseNumber}>
                   <Text style={styles.exerciseNumberText}>{index + 1}</Text>
@@ -425,6 +432,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+  },
+
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  loadingText: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
   },
