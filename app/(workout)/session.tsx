@@ -12,6 +12,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -20,66 +21,70 @@ import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { BlockProgress } from '@/components/workout/BlockProgress';
 import { PauseOverlay } from '@/components/workout/PauseOverlay';
 import { COLORS, SPACING, FONT_SIZES } from '@/constants/app';
-
-// Mock workout blocks
-const MOCK_BLOCKS = [
-  {
-    id: '1',
-    type: 'warmup',
-    duration: 60,
-    exerciseA: { name: 'Jumping Jacks', reps: null, duration: 60 },
-    exerciseB: { name: 'Jumping Jacks', reps: null, duration: 60 },
-  },
-  {
-    id: '2',
-    type: 'exercise',
-    duration: 45,
-    exerciseA: { name: 'Wall Push-ups', reps: 12, duration: null },
-    exerciseB: { name: 'Diamond Push-ups', reps: 10, duration: null },
-  },
-  {
-    id: '3',
-    type: 'exercise',
-    duration: 45,
-    exerciseA: { name: 'Bodyweight Squats', reps: 15, duration: null },
-    exerciseB: { name: 'Jump Squats', reps: 12, duration: null },
-  },
-  {
-    id: '4',
-    type: 'rest',
-    duration: 30,
-    exerciseA: { name: 'Rest', reps: null, duration: 30 },
-    exerciseB: { name: 'Rest', reps: null, duration: 30 },
-  },
-  {
-    id: '5',
-    type: 'exercise',
-    duration: 45,
-    exerciseA: { name: 'Modified Plank', reps: null, duration: 30 },
-    exerciseB: { name: 'Full Plank', reps: null, duration: 45 },
-  },
-  {
-    id: '6',
-    type: 'cooldown',
-    duration: 60,
-    exerciseA: { name: 'Stretch', reps: null, duration: 60 },
-    exerciseB: { name: 'Stretch', reps: null, duration: 60 },
-  },
-];
+import {
+  getActiveWorkout,
+  completeBlock,
+  skipBlock,
+  advanceToNextBlock,
+  prepareSimpleWorkout,
+  startWorkout,
+  type WorkoutBlock,
+  type ActiveWorkoutState,
+} from '@/services/workout-service';
 
 export default function WorkoutSessionScreen() {
   const params = useLocalSearchParams<{ workoutId: string }>();
 
+  const [blocks, setBlocks] = useState<WorkoutBlock[]>([]);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(MOCK_BLOCKS[0].duration);
+  const [timeRemaining, setTimeRemaining] = useState(60);
   const [isPaused, setIsPaused] = useState(false);
   const [isPartnerA] = useState(true); // For demo, assume user is partner A
-  const [completedReps, setCompletedReps] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
 
-  const currentBlock = MOCK_BLOCKS[currentBlockIndex];
+  // Initialize workout blocks
+  useEffect(() => {
+    // Try to get active workout first
+    const activeWorkout = getActiveWorkout();
+    if (activeWorkout) {
+      setBlocks(activeWorkout.preparedWorkout.blocks);
+      setCurrentBlockIndex(activeWorkout.currentBlockIndex);
+      setTimeRemaining(activeWorkout.preparedWorkout.blocks[0]?.duration || 60);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise generate a simple workout for demo
+    const workout = prepareSimpleWorkout({
+      duration: 30,
+      focusArea: 'full-body',
+      fitnessLevelA: 'beginner',
+      fitnessLevelB: 'intermediate',
+    });
+
+    // Start the workout session
+    startWorkout(workout, 'couple-1', 'user-a', 'user-b', true);
+
+    setBlocks(workout.blocks);
+    setTimeRemaining(workout.blocks[0]?.duration || 60);
+    setLoading(false);
+  }, []);
+
+  if (loading || blocks.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Starting workout...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const currentBlock = blocks[currentBlockIndex];
   const myExercise = isPartnerA ? currentBlock.exerciseA : currentBlock.exerciseB;
   const partnerExercise = isPartnerA ? currentBlock.exerciseB : currentBlock.exerciseA;
-  const totalBlocks = MOCK_BLOCKS.length;
+  const totalBlocks = blocks.length;
   const progress = ((currentBlockIndex + 1) / totalBlocks) * 100;
 
   // Timer effect
@@ -101,10 +106,13 @@ export default function WorkoutSessionScreen() {
   }, [isPaused, currentBlockIndex]);
 
   const handleBlockComplete = useCallback(() => {
+    // Mark block as completed
+    completeBlock(currentBlockIndex);
+
     if (currentBlockIndex >= totalBlocks - 1) {
-      // Workout complete
+      // Workout complete - go to feedback first
       router.replace({
-        pathname: '/(workout)/complete',
+        pathname: '/(workout)/feedback',
         params: { workoutId: params.workoutId },
       });
       return;
@@ -112,9 +120,10 @@ export default function WorkoutSessionScreen() {
 
     // Move to next block
     const nextIndex = currentBlockIndex + 1;
+    advanceToNextBlock();
     setCurrentBlockIndex(nextIndex);
-    setTimeRemaining(MOCK_BLOCKS[nextIndex].duration);
-  }, [currentBlockIndex, totalBlocks]);
+    setTimeRemaining(blocks[nextIndex].duration);
+  }, [currentBlockIndex, totalBlocks, blocks]);
 
   const handlePause = () => {
     setIsPaused(true);
@@ -134,8 +143,12 @@ export default function WorkoutSessionScreen() {
           text: 'End Workout',
           style: 'destructive',
           onPress: () => {
+            // Mark remaining blocks as skipped
+            for (let i = currentBlockIndex; i < totalBlocks; i++) {
+              skipBlock(i);
+            }
             router.replace({
-              pathname: '/(workout)/complete',
+              pathname: '/(workout)/feedback',
               params: { workoutId: params.workoutId, early: 'true' },
             });
           },
@@ -384,6 +397,18 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+
+  // Loading
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  loadingText: {
+    fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
   },
 });
