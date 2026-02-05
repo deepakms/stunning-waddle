@@ -6,9 +6,21 @@
  */
 
 export const env = {
+  // Supabase
   EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
   EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   EXPO_PUBLIC_APP_URL: process.env.EXPO_PUBLIC_APP_URL ?? 'https://app.couplesworkout.com',
+
+  // Error Monitoring (Sentry)
+  EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
+
+  // Analytics
+  EXPO_PUBLIC_MIXPANEL_TOKEN: process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? '',
+  EXPO_PUBLIC_AMPLITUDE_API_KEY: process.env.EXPO_PUBLIC_AMPLITUDE_API_KEY ?? '',
+
+  // Feature Flags
+  EXPO_PUBLIC_ENABLE_ANALYTICS: process.env.EXPO_PUBLIC_ENABLE_ANALYTICS === 'true',
+  EXPO_PUBLIC_ENABLE_MONITORING: process.env.EXPO_PUBLIC_ENABLE_MONITORING === 'true',
 } as const;
 
 /**

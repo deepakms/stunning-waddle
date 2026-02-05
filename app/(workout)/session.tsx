@@ -23,6 +23,7 @@ import { BlockProgress } from '@/components/workout/BlockProgress';
 import { PauseOverlay } from '@/components/workout/PauseOverlay';
 import { HeartRateBadge, HeartRateMonitor } from '@/components/workout/HeartRateMonitor';
 import { COLORS, SPACING, FONT_SIZES } from '@/constants/app';
+import { analytics } from '@/services/analytics';
 import {
   getActiveWorkout,
   completeBlock,
@@ -159,6 +160,7 @@ export default function WorkoutSessionScreen() {
   useEffect(() => {
     if (hrAvailable && hrPermission && !loading) {
       startMonitoring();
+      analytics.trackHealth.heartRateConnected();
     }
     return () => {
       stopMonitoring();
@@ -184,6 +186,13 @@ export default function WorkoutSessionScreen() {
       setCurrentBlockIndex(activeWorkout.currentBlockIndex);
       setTimeRemaining(activeWorkout.preparedWorkout.blocks[0]?.duration || 60);
       setLoading(false);
+
+      // Track workout resumed
+      analytics.trackWorkout.started(
+        params.workoutId || 'demo',
+        activeWorkout.preparedWorkout.totalDuration,
+        activeWorkout.preparedWorkout.focusArea
+      );
       return;
     }
 
@@ -197,6 +206,13 @@ export default function WorkoutSessionScreen() {
 
     // Start the workout session
     startWorkout(workout, 'couple-1', 'user-a', 'user-b', true);
+
+    // Track workout started
+    analytics.trackWorkout.started(
+      params.workoutId || 'demo',
+      30,
+      'full-body'
+    );
 
     setBlocks(workout.blocks);
     setTimeRemaining(workout.blocks[0]?.duration || 60);
@@ -260,10 +276,19 @@ export default function WorkoutSessionScreen() {
 
   const handlePause = () => {
     setIsPaused(true);
+    analytics.track('workout_paused', {
+      workout_id: params.workoutId || 'demo',
+      current_block: currentBlockIndex + 1,
+      total_blocks: totalBlocks,
+    });
   };
 
   const handleResume = () => {
     setIsPaused(false);
+    analytics.track('workout_resumed', {
+      workout_id: params.workoutId || 'demo',
+      current_block: currentBlockIndex + 1,
+    });
   };
 
   const handleQuit = () => {
@@ -276,6 +301,13 @@ export default function WorkoutSessionScreen() {
           text: 'End Workout',
           style: 'destructive',
           onPress: () => {
+            // Track workout abandoned
+            analytics.trackWorkout.abandoned(
+              params.workoutId || 'demo',
+              currentBlockIndex,
+              totalBlocks
+            );
+
             // Mark remaining blocks as skipped
             for (let i = currentBlockIndex; i < totalBlocks; i++) {
               skipBlock(i);

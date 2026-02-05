@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { WorkoutSummary } from '@/components/workout/WorkoutSummary';
+import { analytics } from '@/services/analytics';
 import { COLORS, SPACING, FONT_SIZES } from '@/constants/app';
 
 export default function WorkoutCompleteScreen() {
@@ -70,6 +71,14 @@ export default function WorkoutCompleteScreen() {
   const confettiAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Track workout completed
+    analytics.trackWorkout.completed(
+      params.workoutId || 'demo',
+      results.duration,
+      Math.round((results.completedBlocks / results.totalBlocks) * 100),
+      results.xpEarned
+    );
+
     // Entrance animation
     Animated.parallel([
       Animated.timing(fadeAnim, {

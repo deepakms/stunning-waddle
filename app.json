@@ -15,7 +15,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.couplesworkout.app"
+      "bundleIdentifier": "com.couplesworkout.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Couples Workout uses your health data to track heart rate during workouts and personalize exercise recommendations for you and your partner.",
+        "NSHealthUpdateUsageDescription": "Couples Workout saves your workout data to Apple Health to help you track your fitness progress.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +28,19 @@
         "backgroundColor": "#6366f1"
       },
       "package": "com.couplesworkout.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.WRITE_HEART_RATE",
+        "android.permission.health.READ_RESTING_HEART_RATE",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.WRITE_EXERCISE",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.WRITE_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_STEPS",
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,10 +48,47 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Couples Workout uses your health data to track heart rate during workouts.",
+          "healthUpdatePermission": "Couples Workout saves your workout data to Apple Health."
+        }
+      ],
+      [
+        "react-native-health-connect",
+        {
+          "healthPermissions": [
+            "HeartRate",
+            "RestingHeartRate",
+            "ExerciseSession",
+            "ActiveCaloriesBurned",
+            "Steps"
+          ]
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "couples-workout",
+          "project": "couples-workout-app"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
     }
   }
 }

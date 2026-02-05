@@ -18,6 +18,7 @@ import {
   type WorkoutFeedback,
 } from '@/services/workout-service';
 import { progressTracker } from '@/services/pairing';
+import { analytics } from '@/services/analytics';
 import { COLORS, SPACING } from '@/constants/app';
 
 export default function WorkoutFeedbackScreen() {
@@ -110,6 +111,14 @@ export default function WorkoutFeedbackScreen() {
         }
       }
 
+      // Track feedback submitted
+      analytics.trackFeedback.submitted(
+        params.workoutId || 'demo',
+        feedback.overallDifficulty,
+        feedback.enjoymentRating,
+        feedback.partnerConnectionRating
+      );
+
       // Navigate to complete screen with results
       router.replace({
         pathname: '/(workout)/complete',
@@ -140,6 +149,9 @@ export default function WorkoutFeedbackScreen() {
   };
 
   const handleSkip = () => {
+    // Track feedback skipped
+    analytics.trackFeedback.skipped(params.workoutId || 'demo');
+
     router.replace({
       pathname: '/(workout)/complete',
       params: {
