@@ -69,6 +69,51 @@ export {
   DEFAULT_REGRESSION_CRITERIA,
 } from './progression-rules';
 
+// Workout logging
+export {
+  WorkoutLogger,
+  workoutLogger,
+  ExerciseLogBuilder,
+  FeedbackBuilder,
+  type WorkoutLogStorage,
+  type WorkoutStats,
+  type PersonWorkoutStats,
+} from './workout-logger';
+
+// Progress tracking
+export {
+  ProgressTracker,
+  progressTracker,
+  type ProgressProfileStorage,
+} from './progress-tracker';
+
+// Couple tracking
+export {
+  CoupleTracker,
+  coupleTracker,
+  MILESTONE_DEFINITIONS,
+  type CoupleProfileStorage,
+  type MilestoneDefinition,
+} from './couple-tracker';
+
+// Periodization
+export {
+  PeriodizationManager,
+  periodizationManager,
+  PHASE_CONFIGS,
+  DELOAD_TRIGGERS,
+  synchronizeCouplePhases,
+  type DeloadTrigger,
+} from './periodization';
+
+// Feedback processing
+export {
+  FeedbackProcessor,
+  feedbackProcessor,
+  type ProcessedFeedback,
+  type ImplicitSignals,
+} from './feedback-processor';
+
 // Re-export training knowledge
 export {
   TRAINING_PRINCIPLES,
